@@ -3,6 +3,7 @@ import xarray as xr
 from pathlib import Path
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import glob
 import geopandas as gpd
 import regionmask
 
@@ -106,3 +107,22 @@ with ThreadPoolExecutor(max_workers=WORKERS) as executor:
     futures = {executor.submit(process_granule, g): g for g in pending}
     for future in as_completed(futures):
         print(future.result())
+
+files = sorted(glob.glob(str(OUT_DIR / "*.nc4")))
+
+# Prueba ver si time esta roto, parece que en el descarga (al menos para mi) puede pasar donde un par de archivos no tienen coordenados del tiempo
+for f in files:
+    try:
+        ds = xr.open_dataset(f)
+        if "time" not in ds.coords:
+            print(f"Missing time coord: {f}")
+        ds.close()
+    except Exception as e:
+        print(f"Error {f}: {e}")
+
+ds_imerg_sc = xr.open_mfdataset(
+    files,
+    combine="nested",
+    concat_dim="time",
+    chunks={"time": 365},
+)
