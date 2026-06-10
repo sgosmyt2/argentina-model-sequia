@@ -15,7 +15,7 @@ import regionmask
 
 # Constants
 BASE_DIR = Path(__file__).resolve().parent.parent
-RAW_DIR = BASE_DIR / "data" / "raw"
+RAW_DIR = BASE_DIR / "data" / "raw" / "era5"
 PROCESSED_DIR = BASE_DIR / "data" / "processed"
 
 RAW_DIR.mkdir(parents=True, exist_ok=True)
@@ -145,7 +145,7 @@ ds_argentina = ds_era5.where(mask == 0)
 # Revisar si esta bien
 print(ds_argentina)
 ds_argentina["t2m"].isel(valid_time=0).plot()
-plt.savefig("t2m_check.png", dpi=200, bbox_inches="tight")
+plt.savefig("era5_check.png", dpi=200, bbox_inches="tight")
 plt.close()
 
 # Finalmente guardalo

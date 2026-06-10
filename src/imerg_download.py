@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import glob
 import geopandas as gpd
 import regionmask
+import matplotlib.pyplot as plt
 
 # Límites geográficos del conosur
 NORTH = -10
@@ -120,9 +121,31 @@ for f in files:
     except Exception as e:
         print(f"Error {f}: {e}")
 
+print("Starting merge on imerg files...")
 ds_imerg_sc = xr.open_mfdataset(
     files,
     combine="nested",
     concat_dim="time",
     chunks={"time": 365},
 )
+
+# Un mask para conseguir solo argentina, debería hacer el tamaño mucho menos
+gdf = gpd.read_file("data/json/ne_50m_admin_0_countries.json")
+arg = gdf[gdf["ADMIN"] == "Argentina"].copy()
+geom = arg.geometry.iloc[0]
+geom = geom.simplify(tolerance=0.01, preserve_topology=True)
+
+regions = regionmask.Regions([geom])
+
+mask = regions.mask(ds_imerg_sc.lon, ds_imerg_sc.lat)
+ds_argentina = ds_imerg_sc[["precipitation"]].where(mask == 0)
+
+# Revisar si esta bien
+print(ds_argentina)
+ds_argentina["precipitation"].isel(time=100).plot(x="lon", y="lat")
+plt.savefig("imerg_check.png", dpi=200, bbox_inches="tight")
+plt.close()
+
+# Guardalo
+ds_argentina.to_netcdf("data/processed/imerg_argentina.nc")
+print("finished.")
