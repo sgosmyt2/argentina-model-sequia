@@ -36,14 +36,9 @@ era5_variables = {
         "product_type": "monthly_averaged_reanalysis",
         "variables": [
             "total_precipitation",
-            "volumetric_soil_water_layer_1",
-            "volumetric_soil_water_layer_2",
-            "volumetric_soil_water_layer_3",
-            "volumetric_soil_water_layer_4",
-            "high_vegetation_cover",
-            "low_vegetation_cover",
             "2m_temperature",
-            "runoff",
+            "maximum_2m_temperature_since_previous_post_processing",
+            "minimum_2m_temperature_since_previous_post_processing",
         ],
     }
 }
