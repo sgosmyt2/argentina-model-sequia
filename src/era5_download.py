@@ -37,8 +37,8 @@ era5_variables = {
         "variables": [
             "total_precipitation",
             "2m_temperature",
-            "maximum_2m_temperature_since_previous_post_processing",
-            "minimum_2m_temperature_since_previous_post_processing",
+            "maximum_2m_temperature_since_previous_post_processing",  # estes no existen asiq para ahora,
+            "minimum_2m_temperature_since_previous_post_processing",  # vamos a tener q usar solo los datos de temperature de 2 metros y precipitacion
         ],
     }
 }
