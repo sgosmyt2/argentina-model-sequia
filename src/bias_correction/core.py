@@ -86,3 +86,32 @@ def get_station_coords(station_df):
         .drop_duplicates(subset="station_id")
         .reset_index(drop=True)
     )
+    return coords
+
+
+def extract_product_at_station(ds, var, station_coords):
+    """Para cada estacion, conseguir el timeseries de 'var' de la cuadricula mas cerca
+
+    Volver dataframe de la forma larga: station_id, date, model_value
+    """
+    records = []
+    for _, row in station_coords.iterrows():
+        try:
+            series = ds[var].sel(lat=row["lat"], lon=row["lon"], method="nearest")
+        except KeyError:
+            print(f"AVISO: Estacion {row['station_id']} afuera de la cuadricula")
+            continue
+        vals = series.values
+        times = pd.to_datetime(series["time"].values)
+        records.append(
+            pd.DataFrame(
+                {
+                    "station_id": row["station_id"],
+                    "date": times,
+                    "model_value": vals,
+                }
+            )
+        )
+    if not records:
+        raise ValueError(f"Nada estaciones cerca de la cuadricula con variable {var}")
+    return pd.concat(records, ignore_index=True)
