@@ -22,6 +22,8 @@ STATION_COLUMNS = {
     "date": "Fecha",
     "precip": "Precipitacion",
     "tmed": "TMed",
+    "departamento": "Departamento",
+    "provincia": "Provincia",
 }
 
 PRODUCT_CONFIG = {
