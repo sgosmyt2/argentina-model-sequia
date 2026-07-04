@@ -115,3 +115,13 @@ def extract_product_at_station(ds, var, station_coords):
     if not records:
         raise ValueError(f"Nada estaciones cerca de la cuadricula con variable {var}")
     return pd.concat(records, ignore_index=True)
+
+
+def build_pairs(station_df, model_df, station_var):
+    """Inner join de obs estacion y valores modelos (station_id, date)"""
+    obs = station_df[["station_id", "lat", "lon", "date", station_var]].rename(
+        columns={station_var: "obs_value"}
+    )
+    pairs = obs.merge(model_df, on=["station_id", "date"], how="inner")
+    pairs = pairs.dropna(subset=["obs_value", "model_value"])
+    return pairs
