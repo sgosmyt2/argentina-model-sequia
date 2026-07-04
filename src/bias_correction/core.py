@@ -12,6 +12,8 @@
 # 9. run_pipeline             - ejecuta los pasos 1–8 para un único producto
 
 # Imports
+from multiprocessing import Value
+
 import config
 from pathlib import Path
 
@@ -125,3 +127,45 @@ def build_pairs(station_df, model_df, station_var):
     pairs = obs.merge(model_df, on=["station_id", "date"], how="inner")
     pairs = pairs.dropna(subset=["obs_value", "model_value"])
     return pairs
+
+
+def compute_monthly_factors(pairs_df, method, min_overlap_months, ratio_min, ratio_max):
+    """Por (estación, mes calendario), calcular un ratio o factor de corrección
+    delta a partir de las medias climatológicas de obs y modelo durante el
+    periodo emparejado.
+
+    Volver: station_id, lat, lon, mes, factor, n_months
+    """
+    if method not in ("ratio", "delta"):
+        raise ValueError(f"Método desconocido '{method}', 'ratio' o 'delta' esperados")
+
+    df = pairs_df.copy()
+    df["month"] = df["date"].dt.month
+
+    grouped = df.groupby(["station_id", "month"])
+    counts = grouped.size().rename("n_months")
+
+    means = grouped[["obs_value", "model_value"]].mean()
+    means = means.join(counts)
+    means = means[means["n_months"] >= min_overlap_months]
+
+    if method == "ratio":
+        factor = means["obs_value"] / means["model_value"]
+        if ratio_min is not None or ratio_max is not None:
+            factor = factor.clip(lower=ratio_min, upper=ratio_max)
+    else:
+        factor = means["obs_value"] - means["model_value"]
+
+    result = means.copy()
+    result["factor"] = factor
+    result = result.reset_index()
+
+    coords = df.drop_duplicates("station_id")[["station_id", "lat", "lon"]]
+    result = result.merge(coords, on="station_id", how="left")
+
+    result = result[["station_id", "lat", "lon", "month", "factor", "n_months"]]
+
+    print(
+        f"compute_monthly_factors ({method}): {len(result)} estacion-mes \nfactores calculado (min_overlap={min_overlap_months})"
+    )
+    return result
