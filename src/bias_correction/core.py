@@ -16,6 +16,7 @@ from multiprocessing import Value
 
 import config
 from pathlib import Path
+import warnings
 
 import numpy as np
 import pandas as pd
@@ -130,7 +131,7 @@ def build_pairs(station_df, model_df, station_var):
 
 
 def compute_monthly_factors(pairs_df, method, min_overlap_months, ratio_min, ratio_max):
-    """Por (estación, mes calendario), calcular un ratio o factor de corrección
+    """Por (estación, mes), calcular un ratio o factor de corrección
     delta a partir de las medias climatológicas de obs y modelo durante el
     periodo emparejado.
 
@@ -169,3 +170,56 @@ def compute_monthly_factors(pairs_df, method, min_overlap_months, ratio_min, rat
         f"compute_monthly_factors ({method}): {len(result)} estacion-mes \nfactores calculado (min_overlap={min_overlap_months})"
     )
     return result
+
+
+def krige_monthly_field(
+    factors_df, target_lat, target_lon, kriging_config, ratio_min, ratio_max
+):
+    """Poner kriging ordinario por mes y predecir en la cuadricula objetiva.
+
+    Volver month: 2D array (lat, lon)
+    """
+    fields: dict[int, np.ndarray] = {}
+    lon_grid, lat_grid = np.meshgrid(target_lon, target_lat)
+
+    for month in range(1, 13):
+        month_df = factors_df[factors_df["month"] == month]
+        n_points = len(month_df)
+
+        if n_points == 0:
+            print(
+                f"AVISO: Mes {month}: nada factores de la estación disponsible, campo esta NaN"
+            )
+            fields[month] = np.full(lat_grid.shape, np.nan)
+            continue
+
+        if n_points < MIN_STATIONS_FOR_KRIG:
+            flat_value = month_df["factor"].mean()
+            print(
+                f"AVISO: Mes {month}: solo {n_points} estación(es) disponsible. (< {MIN_STATIONS_FOR_KRIG}), volver al campo plano. (mean factor = {flat_value:.4f})"
+            )
+            fields[month] = np.full(lat_grid.shape, flat_value)
+            continue
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            ok = OrdinaryKriging(
+                month_df["lon"].values,
+                month_df["lat"].values,
+                month_df["factor"].values,
+                variogram_model=kriging_config["variogram_model"],
+                nlags=kriging_config["nlags"],
+                coordinates_type=kriging_config["coordinates_type"],
+                verbose=kriging_config["verbose"],
+                enable_plotting=kriging_config["enable_plotting"],
+            )
+            z, _ss = ok.execute("grid", target_lon, target_lat)
+
+        z = np.asarray(z)
+        if ratio_min is not None or ratio_max is not None:
+            z = np.clip(z, ratio_min, ratio_max)
+
+        fields[month] = z
+        print(f"Mes {month:2d}: kriged desde {n_points} estaciónes")
+
+    return fields
