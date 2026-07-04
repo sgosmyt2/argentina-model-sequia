@@ -223,3 +223,33 @@ def krige_monthly_field(
         print(f"Mes {month:2d}: kriged desde {n_points} estaciónes")
 
     return fields
+
+
+def apply_correction(ds, var, monthly_fields, method):
+    """Aplicar el por mes campo de bias a cada tiempo de 'var', en todo el dataset."""
+    raw = ds[var]
+    months = raw["time"].dt.months.values
+
+    field_stack = np.stack([monthly_fields[m] for m in range(1, 13)], axis=0)
+    field_da = xr.DataArray(
+        field_stack,
+        dims=("month", "lat", "lon"),
+        coords={"month": np.arange(1, 13), "lat": ds["lat"], "lon": ds["lon"]},
+        name=f"{var}_bias_field",
+    )
+
+    field_per_time = field_da.sel(month=xr.DataArray(months, dims="time"))
+    field_per_time = field_per_time.assign_coords(time=raw["time"])
+
+    if method == "ratio":
+        corrected = raw * field_per_time
+    elif method == "delta":
+        corrected = raw + field_per_time
+    else:
+        raise ValueError(f"metodo desconocido {method}")
+
+    out = ds.copy()
+    out[f"{var}_raw"] = raw
+    out[var] = corrected
+    out[f"{var}_bias_field"] = field_da
+    return out
