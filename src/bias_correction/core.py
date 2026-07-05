@@ -198,6 +198,12 @@ def krige_monthly_field(
             fields[month] = np.full(lat_grid.shape, flat_value)
             continue
 
+        if month_df["factor"].std() < 1e-8:
+            flat_value = month_df["factor"].mean()
+            print(f"AVISO: Mes {month}: factores de la estacion no tienen variance")
+            fields[month] = np.full(lat_grid.shape, flat_value)
+            continue
+
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             ok = OrdinaryKriging(
@@ -225,7 +231,7 @@ def krige_monthly_field(
 def apply_correction(ds, var, monthly_fields, method):
     """Aplicar el por mes campo de bias a cada tiempo de 'var', en todo el dataset."""
     raw = ds[var]
-    months = raw["time"].dt.months.values
+    months = raw["time"].dt.month.values
 
     field_stack = np.stack([monthly_fields[m] for m in range(1, 13)], axis=0)
     field_da = xr.DataArray(
