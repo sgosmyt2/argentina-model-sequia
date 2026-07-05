@@ -21,7 +21,7 @@ STATION_COLUMNS = {
     "lon": "Longitud",
     "date": "Fecha",
     "precip": "Precipitacion",
-    "tmed": "TMed",
+    "tmed": "Tmed",
     "departamento": "Departamento",
     "provincia": "Provincia",
 }
