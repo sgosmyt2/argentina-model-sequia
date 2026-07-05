@@ -12,10 +12,7 @@
 # 9. run_pipeline             - ejecuta los pasos 1–8 para un único producto
 
 # Imports
-from multiprocessing import Value
-
 import config
-from pathlib import Path
 import warnings
 
 import numpy as np
@@ -329,3 +326,78 @@ def cross_valid_loo(
         "n_stations": len(station_ids),
         "n_obs": len(raw_errors),
     }
+
+
+def run_pipeline(product_name):
+    """Empezar el pipeline entero por un producto (por ejemplo IMERG e ERA5).
+
+    Usa el config en config.py PRODUCT_CONFIG, así que podemos añadir más productos si es
+    necesario.
+    """
+    cfg = config.PRODUCT_CONFIG[product_name]
+    print(f"Empezando bias correccion por {product_name}")
+
+    ds = xr.open_dataset(cfg["input_nc"])
+    station_df = load_stations(config.STATION_CSV)
+    validate_stations(station_df)
+    station_coords = get_station_coords(station_df)
+
+    validation_rows = []
+
+    for var, var_cfg in cfg["variables"].items():
+        print(f" Variable: {var} (metodo={var_cfg['method']})")
+        station_var = var_cfg["station_var"]
+        method = var_cfg["method"]
+        ratio_min = config.PRECIP_RATIO_MIN if method == "ratio" else None
+        ratio_max = config.PRECIP_RATIO_MAX if method == "ratio" else None
+
+        model_df = extract_product_at_station(ds, var, station_coords)
+        pairs = build_pairs(station_df, model_df, station_var)
+
+        factors = compute_monthly_factors(
+            pairs, method, config.MIN_OVERLAP_MONTHS, ratio_min, ratio_max
+        )
+        fields = krige_monthly_field(
+            factors,
+            target_lat=ds["lat"].values,
+            target_lon=ds["lon"].values,
+            kriging_config=config.KRIGING_CONFIG,
+            ratio_min=ratio_min,
+            ratio_max=ratio_max,
+        )
+        ds = apply_correction(ds, var, fields, method)
+
+        if config.RUN_LOO_VALIDATION:
+            summary = cross_valid_loo(
+                pairs,
+                method,
+                config.MIN_OVERLAP_MONTHS,
+                config.KRIGING_CONFIG,
+                ratio_min,
+                ratio_max,
+            )
+            summary = {"product": product_name, "variable": var, **summary}
+            validation_rows.append(summary)
+            print(
+                f"LOO ({var}): RMSE raw={summary['rmse_raw']:.3f} -> "
+                f"corrected={summary['rmse_corrected']:.3f} | "
+                f"bias raw={summary['bias_raw']:.3f} -> "
+                f"corrected={summary['bias_corrected']:.3f} "
+                f"(n={summary['n_obs']} obs, {summary['n_stations']} stations)"
+            )
+
+    cfg["output_nc"].parent.mkdir(parents=True, exist_ok=True)
+    ds.to_netcdf(cfg["output_nc"])
+    print(f"Escribió dataset corregido a {cfg['output_nc']}")
+
+    if config.RUN_LOO_VALIDATION and validation_rows:
+        val_df = pd.DataFrame(validation_rows)
+        config.VALIDATION_OUTPUT_CSV.parent.mkdir(parents=True, exist_ok=True)
+        if config.VALIDATION_OUTPUT_CSV.exists():
+            existing = pd.read_csv(config.VALIDATION_OUTPUT_CSV)
+            existing = existing[existing["product"] != product_name]
+            val_df = pd.concat([existing, val_df], ignore_index=True)
+        val_df.to_csv(config.VALIDATION_OUTPUT_CSV, index=False)
+        print(f"Wrote validation summary -> {config.VALIDATION_OUTPUT_CSV}")
+
+    return ds
