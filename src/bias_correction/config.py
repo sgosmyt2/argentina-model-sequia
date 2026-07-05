@@ -52,7 +52,7 @@ MIN_OVERLAP_MONTHS = 24
 # Límites aplicados a la relación entre las observaciones de las estaciones y el
 # modelo antes del kriging.
 PRECIP_RATIO_MIN = 0.2
-PRECIP_RATIO_MAX = 0.5
+PRECIP_RATIO_MAX = 5.0
 
 KRIGING_CONFIG = {
     "variogram_model": "spherical",
