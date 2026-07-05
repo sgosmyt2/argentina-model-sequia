@@ -253,3 +253,79 @@ def apply_correction(ds, var, monthly_fields, method):
     out[var] = corrected
     out[f"{var}_bias_field"] = field_da
     return out
+
+
+def cross_valid_loo(
+    pairs_df, method, min_overlap_mths, kriging_config, ratio_min, ratio_max
+):
+    """LOO Validacion, por cada estación hace una reparación de los factores + kriging excluirlo,
+    predecir la correcion a su locación y comparar corregido contra crudo error
+    """
+    station_ids = pairs_df["station_id"].unique()
+    raw_errors = []
+    corrected_errors = []
+
+    for held_out in station_ids:
+        train = pairs_df[pairs_df["station_id"] != held_out]
+        test = pairs_df[pairs_df["station_id"] == held_out]
+        if test.empty:
+            continue
+
+        factors = compute_monthly_factors(
+            train, method, min_overlap_mths, ratio_min, ratio_max
+        )
+        if factors.empty:
+            continue
+
+        station_lat = test["lat"].iloc[0]
+        station_lon = test["lon"].iloc[0]
+
+        # krige en un punto singular por esta estación
+        fields = krige_monthly_field(
+            factors,
+            target_lat=np.array([station_lat]),
+            target_lon=np.array([station_lon]),
+            kriging_config=kriging_config,
+            ratio_min=ratio_min,
+            ratio_max=ratio_max,
+        )
+
+        for _, row in test.iterrows():
+            month = row["date"].month
+            field_val = fields[month][0, 0]
+            if np.isnan(field_val):
+                continue
+
+            raw_val = row["model_value"]
+            obs_val = row["obs_value"]
+
+            if method == "ratio":
+                corrected_val = raw_val * field_val
+            else:
+                corrected_val = raw_val + field_val
+
+            raw_errors.append(raw_val - obs_val)
+            corrected_errors.append(corrected_val - obs_val)
+
+    raw_errors = np.array(raw_errors)
+    corrected_errors = np.array(corrected_errors)
+
+    if len(raw_errors) == 0:
+        print("AVISO: LOO validación no creyó nada puntos comparables")
+        return {
+            "rmse_raw": np.nan,
+            "rmse_corrected": np.nan,
+            "bias_raw": np.nan,
+            "bias_corrected": np.nan,
+            "n_stations": len(station_ids),
+            "n_obs": 0,
+        }
+
+    return {
+        "rmse_raw": float(np.sqrt(np.mean(raw_errors**2))),
+        "rmse_corrected": float(np.sqrt(np.mean(corrected_errors**2))),
+        "bias_raw": float(np.mean(raw_errors)),
+        "bias_corrected": float(np.mean(corrected_errors)),
+        "n_stations": len(station_ids),
+        "n_obs": len(raw_errors),
+    }
