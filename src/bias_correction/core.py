@@ -401,12 +401,10 @@ def run_pipeline(product_name):
 
     if config.RUN_LOO_VALIDATION and validation_rows:
         val_df = pd.DataFrame(validation_rows)
-        config.VALIDATION_OUTPUT_CSV.parent.mkdir(parents=True, exist_ok=True)
-        if config.VALIDATION_OUTPUT_CSV.exists():
-            existing = pd.read_csv(config.VALIDATION_OUTPUT_CSV)
-            existing = existing[existing["product"] != product_name]
-            val_df = pd.concat([existing, val_df], ignore_index=True)
-        val_df.to_csv(config.VALIDATION_OUTPUT_CSV, index=False)
+        output_filename = (
+            config.BIAS_RESULTS_DIR / f"{product_name}_loo_validation_summary.csv"
+        )
+        val_df.to_csv(output_filename, index=False)
         print(f"Escribió resumen de validacion a {config.VALIDATION_OUTPUT_CSV}")
 
     return ds
