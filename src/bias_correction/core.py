@@ -181,6 +181,9 @@ def krige_monthly_field(
 
     for month in range(1, 13):
         month_df = factors_df[factors_df["month"] == month]
+
+        month_df = month_df.groupby(["lat", "lon"])["factor"].mean().reset_index()
+
         n_points = len(month_df)
 
         if n_points == 0:
@@ -404,6 +407,6 @@ def run_pipeline(product_name):
             existing = existing[existing["product"] != product_name]
             val_df = pd.concat([existing, val_df], ignore_index=True)
         val_df.to_csv(config.VALIDATION_OUTPUT_CSV, index=False)
-        print(f"Wrote validation summary -> {config.VALIDATION_OUTPUT_CSV}")
+        print(f"Escribió resumen de validacion a {config.VALIDATION_OUTPUT_CSV}")
 
     return ds
