@@ -54,3 +54,30 @@ ds = ds.rename(rename_map)
 lat_vals = ds["lat"].values
 lat_slice = slice(NORTH, SOUTH) if lat_vals[0] > lat_vals[-1] else slice(SOUTH, NORTH)
 ds = ds.sel(lat=lat_slice, lon=slice(WEST, EAST))
+
+# Aplicar el mask a los datos de chirps hacer solo de argentina
+gdf = gpd.read_file(BASE_DIR / "data" / "json" / "ne_50m_admin_0_countries.json")
+arg = gdf[gdf["ADMIN"] == "Argentina"].copy()
+geom = arg.geometry.iloc[0].simplify(tolerance=0.01, preserve_topology=True)
+regions = regionmask.Regions([geom])
+
+mask = regions.mask(ds["lon"], ds["lat"])
+ds = ds.where(mask == 0)
+
+# Cambiar los nombres y unidades y tambien guardar para correr con el pipeline
+ds = ds.rename({"precip": "precip_month"})
+ds["precip_month"].attrs["units"] = "mm/month"
+ds["precip_month"].attrs["long_name"] = "CHIRPS Total Monthly Precipitation"
+ds = ds[["precip_month"]]
+
+save_path = PROCESSED_DIR / "chirps_arg_monthly_clean.nc"
+ds.to_netcdf(save_path)
+print(f"Guardado: {save_path}")
+
+ds["precip_month"].isel(time=0).plot()
+plt.title("Spatial Coverage Check: CHIRPS Argentina Mask")
+plt.savefig(BASE_DIR / "chirps_check.png", dpi=200, bbox_inches="tight")
+plt.close()
+
+print("\nDataset final:")
+print(ds)
