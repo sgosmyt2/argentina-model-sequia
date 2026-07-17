@@ -12,8 +12,10 @@ BIAS_RESULTS_DIR = RESULTS_DIR / "bias_correction"
 STATION_CSV = PROCESSED_DIR / "fixed_station.csv"
 ERA5_DATA = PROCESSED_DIR / "era5_arg_monthly_clean.nc"
 IMERG_DATA = PROCESSED_DIR / "imerg_arg_monthly_clean.nc"
+CHIRPS_DATA = PROCESSED_DIR / "chirps_arg_monthly_clean.nc"
 ERA5_OUTPUT_NC = BIAS_RESULTS_DIR / "era5_arg_monthly_corrected.nc"
 IMERG_OUTPUT_NC = BIAS_RESULTS_DIR / "imerg_arg_monthly_corrected.nc"
+CHIRPS_OUTPUT_NC = BIAS_RESULTS_DIR / "chirps_arg_monthly_corrected.nc"
 
 STATION_COLUMNS = {
     "station_id": "Estacion",
@@ -38,6 +40,13 @@ PRODUCT_CONFIG = {
     "imerg": {
         "input_nc": IMERG_DATA,
         "output_nc": IMERG_OUTPUT_NC,
+        "variables": {
+            "precip_month": {"station_var": "precip", "method": "ratio"},
+        },
+    },
+    "chirps": {
+        "input_nc": CHIRPS_DATA,
+        "output_nc": CHIRPS_OUTPUT_NC,
         "variables": {
             "precip_month": {"station_var": "precip", "method": "ratio"},
         },
