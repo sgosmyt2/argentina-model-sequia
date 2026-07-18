@@ -1,0 +1,2 @@
+product,variable,rmse_raw,rmse_corrected,bias_raw,bias_corrected,n_stations,n_obs
+chirps,precip_month,34.21549161713588,35.24142198455951,0.2788015370330061,1.4218206788808496,148,38218
