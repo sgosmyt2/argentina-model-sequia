@@ -32,3 +32,11 @@ def make_mock_stack(file_path, num_steps=12):
         attrs=single_frame.attrs,
     )
     return mock_da
+
+
+def calculate_sepa_persistence(anomaly_da, cap_at_seven=True):
+    """
+    Calcular duraciones de estres consecutivo (clases 4 y 5),
+    y poner un tope maximo de la persistencia a 7 pasos como dice la
+    metodología de SEPA.
+    """
