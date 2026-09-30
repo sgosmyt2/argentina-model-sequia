@@ -1,6 +1,5 @@
 import re
 from pathlib import Path
-from unittest import result
 
 import numpy as np
 import rioxarray

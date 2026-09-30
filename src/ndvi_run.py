@@ -26,7 +26,7 @@ def main():
             "zlib": True,
             "complevel": 5,
             "dtype": "uint8",
-            "_FillValue": 0,
+            "_FillValue": None,
         }
     }
     ds_out.to_netcdf(OUTPUT_FILE, encoding=encoding)
