@@ -24,6 +24,40 @@ def extract_sort_key(filepath):
     return (0, 0)
 
 
+def load_ndvi_stack(folder_path, chunk_size=2024):
+    """
+    Carga todos los archivos .img/.tif en orden cronológico como un
+    DataArray perezoso.
+    """
+    folder = Path(folder_path)
+    valid_extensions = {".img", ".tif", ".tiff"}
+
+    # Filtrar archivos válidos
+    files = [
+        f
+        for f in folder.iterdir()
+        if f.is_file() and f.suffix.lower() in valid_extensions
+    ]
+    files = sorted(files, key=extract_sort_key)
+
+    if not files:
+        raise FileNotFoundError(
+            f"No se encontraron archivos .img o .tif en {folder_path}"
+        )
+
+    time_slices = []
+    for f in files:
+        # rioxarray abre tanto .img como .tif usando GDAL
+        da = rioxarray.open_rasterio(f, chunks={"x": chunk_size, "y": chunk_size})
+        da = da.squeeze(drop=True)
+
+        year, doy = extract_sort_key(f)
+        da = da.assign_coords(time=f"{year}_{doy:03d}")
+        time_slices.append(da)
+
+    return xr.concat(time_slices, dim="time")
+
+
 def calculate_sepa_persistence(anomaly_da, cap_at_seven=True):
     """
     Calcular duraciones de estres consecutivo (clases 4 y 5),
