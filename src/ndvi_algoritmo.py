@@ -1,6 +1,27 @@
+import re
+from pathlib import Path
+
 import numpy as np
 import rioxarray
 import xarray as xr
+
+
+def extract_sort_key(filepath):
+    """
+    Extrae el año y el día del año para ordenar los archivos. Funciona con
+    .img, .tif/tiff.
+    """
+    filename = Path(filepath).name
+    # Si la forma del archivo cambia con NDVI diferente vas a necesitar cambiar el string aqui
+    match = re.search(
+        r"sc-iv-(\d{3}).*?(\d{4})-argentina\.(img|tif|tiff)$",
+        filename,
+        re.IGNORECASE,
+    )
+    if match:
+        doy, year, _ = match.groups()
+        return (int(year), int(doy))
+    return (0, 0)
 
 
 def make_mock_stack(file_path, num_steps=12):
