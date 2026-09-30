@@ -1,5 +1,6 @@
 import re
 from pathlib import Path
+from unittest import result
 
 import numpy as np
 import rioxarray
@@ -58,37 +59,40 @@ def load_ndvi_stack(folder_path, chunk_size=2024):
     return xr.concat(time_slices, dim="time")
 
 
-def calculate_sepa_persistence(anomaly_da, cap_at_seven=True):
+def calculate_sepa_persistence(anomaly_da, cap_at_seven=True, block_size=1000):
     """
     Calcular duraciones de estres consecutivo (clases 4 y 5),
     y poner un tope maximo de la persistencia a 7 pasos como dice la
     metodología de SEPA.
     """
-    arr = anomaly_da.values
+    time_len, height, width = anomaly_da.shape
+    persistence = np.zeros((time_len, height, width), dtype=np.uint8)
 
-    # mascara de estres binaraio (1 por los clases de estres 4 y 5, 0 si no)
-    is_stress = np.isin(arr, [4, 5]).astype(np.int16)
+    # Procesar en bloques a lo largo del eje Y para controlar el uso de ram
+    for y_start in range(0, height, block_size):
+        y_end = min(y_start + block_size, height)
 
-    # Identificar los píxeles del fondo o máscara (agua/non veg clase 0 o 6)
-    is_background = np.isin(arr, [0, 6])
+        # Extraer solo un bloque especial para todos los pasos de tiempo
+        block = anomaly_da[:, y_start:y_end, :].values
 
-    persistence = np.zeros_like(is_stress, dtype=np.int16)
+        is_stress = np.isin(block, [4, 5]).astype(np.int16)
+        is_background = np.isin(block, [0, 6])
 
-    # loop temporal
-    for t in range(is_stress.shape[0]):
-        if t == 0:
-            persistence[t] = is_stress[t]
-        else:
-            streak = (persistence[t - 1] + 1) * is_stress[t]
-            if cap_at_seven:
-                persistence[t] = np.minimum(streak, 7)
+        block_persistence = np.zeros_like(is_stress, dtype=np.int16)
+
+        for t in range(time_len):
+            if t == 0:
+                block_persistence[t] = is_stress[t]
             else:
-                persistence[t] = streak
+                streak = (block_persistence[t - 1] + 1) * is_stress[t]
+                if cap_at_seven:
+                    block_persistence[t] = np.minimum(streak, 7)
+                else:
+                    block_persistence[t] = streak
 
-    # aplica de nuevo la máscara del fondo como 0
-    persistence[is_background] = 0
+        block_persistence[is_background] = 0
+        persistence[:, y_start:y_end, :] = block_persistence.astype(np.uint8)
 
-    # ponga el xarray como uint8 para mantener espacio
-    result_da = anomaly_da.copy(data=persistence.astype(np.uint8))
+    result_da = anomaly_da.copy(data=persistence)
     result_da.name = "ndvi_persistence"
     return result_da

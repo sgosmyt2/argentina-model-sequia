@@ -10,8 +10,8 @@ OUTPUT_FILE = PROJECT_ROOT / "data" / "processed" / "persistence_test_output.nc"
 def main():
     print(f"cargandose serie temporal de rasters desde {INPUT_DIR}")
 
-    # Cargarse el archivo duplicado en 12 pasos de tiempo
-    stack = load_ndvi_stack(INPUT_DIR, num_steps=12)
+    # Cargar todos los archivos en un stack crónologico
+    stack = load_ndvi_stack(INPUT_DIR)
     print(f"Raster stack cargado con la dimensión: {stack.shape}")
 
     # Calcular logicó de persistencía
