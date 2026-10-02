@@ -83,40 +83,27 @@ def persistence_1d(arr_1d, cap_at_seven=True):
     return persistence
 
 
-def calculate_sepa_persistence(anomaly_da, cap_at_seven=True, block_size=1000):
+def calculate_sepa_persistence(anomaly_da, cap_at_seven=True):
     """
     Calcular duraciones de estres consecutivo (clases 4 y 5),
     y poner un tope maximo de la persistencia a 7 pasos como dice la
     metodología de SEPA.
     """
-    time_len, height, width = anomaly_da.shape
-    persistence = np.zeros((time_len, height, width), dtype=np.uint8)
+    anomaly_da = anomaly_da.chunk({"time": -1, "x": 1024, "y": 1024})
 
-    # Procesar en bloques a lo largo del eje Y para controlar el uso de ram
-    for y_start in range(0, height, block_size):
-        y_end = min(y_start + block_size, height)
+    # Vectorización paralela sobre las dimensiones especiales
+    result_da = xr.apply_ufunc(
+        persistence_1d,
+        anomaly_da,
+        kwargs={"cap_at_seven": cap_at_seven},
+        input_core_dims=[["time"]],
+        output_core_dims=[["time"]],
+        vectorize=True,
+        dask="parallelized",
+        output_dtypes=[np.uint8],
+    )
 
-        # Extraer solo un bloque especial para todos los pasos de tiempo
-        block = anomaly_da[:, y_start:y_end, :].values
-
-        is_stress = np.isin(block, [4, 5]).astype(np.int16)
-        is_background = np.isin(block, [0, 6])
-
-        block_persistence = np.zeros_like(is_stress, dtype=np.int16)
-
-        for t in range(time_len):
-            if t == 0:
-                block_persistence[t] = is_stress[t]
-            else:
-                streak = (block_persistence[t - 1] + 1) * is_stress[t]
-                if cap_at_seven:
-                    block_persistence[t] = np.minimum(streak, 7)
-                else:
-                    block_persistence[t] = streak
-
-        block_persistence[is_background] = 0
-        persistence[:, y_start:y_end, :] = block_persistence.astype(np.uint8)
-
-    result_da = anomaly_da.copy(data=persistence)
+    # Asegurar que el orden de las dimensiones se mantenga como time, y, x
+    result_da = result_da.transpose("time", "y", "x")
     result_da.name = "ndvi_persistence"
     return result_da
