@@ -1,10 +1,12 @@
 from pathlib import Path
 
+from dask.diagnostics import ProgressBar
+
 from ndvi_algoritmo import calculate_sepa_persistence, load_ndvi_stack
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 INPUT_DIR = PROJECT_ROOT / "data" / "raw" / "ndvi"
-OUTPUT_FILE = PROJECT_ROOT / "data" / "processed" / "persistence_test_output.nc"
+OUTPUT_FILE = PROJECT_ROOT / "data" / "processed" / "persistence_test_output.zarr"
 
 
 def main():
@@ -19,17 +21,16 @@ def main():
     persistence = calculate_sepa_persistence(stack, cap_at_seven=True)
 
     # Guardarlo
-    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     ds_out = persistence.to_dataset(name="ndvi_persistence")
     encoding = {
         "ndvi_persistence": {
-            "zlib": True,
-            "complevel": 5,
             "dtype": "uint8",
             "_FillValue": None,
         }
     }
-    ds_out.to_netcdf(OUTPUT_FILE, encoding=encoding)
+
+    with ProgressBar():
+        ds_out.to_zarr(OUTPUT_FILE, encoding=encoding, mode="w")
     print(f"\nGuardado prueba NetCDF a {OUTPUT_FILE}")
 
 
