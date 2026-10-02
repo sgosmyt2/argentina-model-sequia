@@ -58,6 +58,31 @@ def load_ndvi_stack(folder_path, chunk_size=2024):
     return xr.concat(time_slices, dim="time")
 
 
+def persistence_1d(arr_1d, cap_at_seven=True):
+    """
+    Operación 1d en numpy ejecutada por dask en paralelo para cada píxel
+    individual. Recibe un vector a lo largo del eje del tiempo.
+    """
+    is_stress = np.isin(arr_1d, [4, 5])
+    is_bg = np.isin(arr_1d, [0, 6])
+
+    persistence = np.zeros_like(arr_1d, dtype=np.uint8)
+    current_streak = 0
+
+    for t in range(len(arr_1d)):
+        if is_bg[t]:
+            current_streak = 0
+            persistence[t] = 0
+        elif is_stress[t]:
+            current_streak += 1
+            persistence[t] = min(current_streak, 7) if cap_at_seven else current_streak
+        else:
+            current_streak = 0
+            persistence[t] = 0
+
+    return persistence
+
+
 def calculate_sepa_persistence(anomaly_da, cap_at_seven=True, block_size=1000):
     """
     Calcular duraciones de estres consecutivo (clases 4 y 5),
