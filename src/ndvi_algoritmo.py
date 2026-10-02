@@ -64,7 +64,10 @@ def persistence_1d(arr_1d, cap_at_seven=True):
     individual. Recibe un vector a lo largo del eje del tiempo.
     """
     is_stress = np.isin(arr_1d, [4, 5])
-    is_bg = np.isin(arr_1d, [0, 6])
+    is_valid_non_stress = np.isin(arr_1d, [1, 2, 3])
+
+    # Cualquier valor fuera de 1,2,3,4,5 (0, 6, NaN) es fondo o máscara
+    is_bg = ~np.isin(arr_1d, [1, 2, 3, 4, 5])
 
     persistence = np.zeros_like(arr_1d, dtype=np.uint8)
     current_streak = 0

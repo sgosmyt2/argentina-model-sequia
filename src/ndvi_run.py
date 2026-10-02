@@ -11,7 +11,7 @@ def main():
     print(f"cargandose serie temporal de rasters desde {INPUT_DIR}")
 
     # Cargar todos los archivos en un stack crónologico
-    stack = load_ndvi_stack(INPUT_DIR)
+    stack = load_ndvi_stack(INPUT_DIR, chunk_size=1024)
     print(f"Raster stack cargado con la dimensión: {stack.shape}")
 
     # Calcular logicó de persistencía
