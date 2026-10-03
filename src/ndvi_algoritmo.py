@@ -69,31 +69,23 @@ def load_ndvi_stack(folder_path, chunk_size=2024, max_workers=4):
     return stack
 
 
-def persistence_1d(arr_1d, cap_at_seven=True):
+def persistence_block(block, cap_at_seven=True):
     """
-    Operación 1d en numpy ejecutada por dask en paralelo para cada píxel
-    individual. Recibe un vector a lo largo del eje del tiempo.
+    Núcleo vectorizado en NumPy: bucle solo sobre time (corto),
+    vectorización completa del espacio (rápido).
+    Block: (time, chunk_y, chunk_x)
     """
-    is_stress = np.isin(arr_1d, [4, 5])
+    is_stress = np.isin(block, [4, 5]).astype(np.int16)
+    persistence = np.zeros_like(is_stress, dtype=np.int16)
 
-    # Cualquier valor fuera de 1,2,3,4,5 (0, 6, NaN) es fondo o máscara
-    is_bg = ~np.isin(arr_1d, [1, 2, 3, 4, 5])
-
-    persistence = np.zeros_like(arr_1d, dtype=np.uint8)
-    current_streak = 0
-
-    for t in range(len(arr_1d)):
-        if is_bg[t]:
-            current_streak = 0
-            persistence[t] = 0
-        elif is_stress[t]:
-            current_streak += 1
-            persistence[t] = min(current_streak, 7) if cap_at_seven else current_streak
+    for t in range(block.shape[0]):
+        if t == 0:
+            persistence[t] = is_stress[t]
         else:
-            current_streak = 0
-            persistence[t] = 0
+            streak = (persistence[t - 1] + 1) * is_stress[t]
+            persistence[t] = np.minimum(streak, 7) if cap_at_seven else streak
 
-    return persistence
+    return persistence.astype(np.uint8)
 
 
 def calculate_sepa_persistence(anomaly_da, cap_at_seven=True):
