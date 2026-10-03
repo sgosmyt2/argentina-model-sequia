@@ -1,7 +1,6 @@
 import re
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from threading import Thread
 
 import dask.array as da
 import numpy as np
@@ -94,21 +93,16 @@ def calculate_sepa_persistence(anomaly_da, cap_at_seven=True):
     y poner un tope maximo de la persistencia a 7 pasos como dice la
     metodología de SEPA.
     """
-    anomaly_da = anomaly_da.chunk({"time": -1, "x": 1024, "y": 1024})
+    if not isinstance(anomaly_da.data, da.Array):
+        raise TypeError("anomaly_da debe estar respaldado por dask")
 
-    # Vectorización paralela sobre las dimensiones especiales
-    result_da = xr.apply_ufunc(
-        persistence_1d,
-        anomaly_da,
-        kwargs={"cap_at_seven": cap_at_seven},
-        input_core_dims=[["time"]],
-        output_core_dims=[["time"]],
-        vectorize=True,
-        dask="parallelized",
-        output_dtypes=[np.uint8],
+    time_chunks = anomaly_da.chunksizes.get("time")
+    if time_chunks is not None and len(time_chunks) != 1:
+        raise ValueError("time tiene múltiples chunks pero necesita uno")
+
+    result_data = anomaly_da.data.map_blocks(
+        persistence_block, cap_at_seven=cap_at_seven, dtype=np.uint8
     )
-
-    # Asegurar que el orden de las dimensiones se mantenga como time, y, x
-    result_da = result_da.transpose("time", "y", "x")
+    result_da = anomaly_da.copy(data=result_data)
     result_da.name = "ndvi_persistence"
     return result_da
