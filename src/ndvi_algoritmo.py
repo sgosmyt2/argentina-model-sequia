@@ -1,6 +1,9 @@
 import re
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Thread
 
+import dask.array as da
 import numpy as np
 import rioxarray
 import xarray as xr
@@ -24,38 +27,46 @@ def extract_sort_key(filepath):
     return (0, 0)
 
 
-def load_ndvi_stack(folder_path, chunk_size=2024):
+def load_ndvi_stack(folder_path, chunk_size=2024, max_workers=4):
     """
-    Carga todos los archivos .img/.tif en orden cronológico como un
-    DataArray perezoso.
+    Carga archivos en paralelo (lectura I/O), luego concatena.
+    Mantiene el eje time sin trocear (lo necesita la recurrencia).
     """
     folder = Path(folder_path)
     valid_extensions = {".img", ".tif", ".tiff"}
 
-    # Filtrar archivos válidos
-    files = [
-        f
-        for f in folder.iterdir()
-        if f.is_file() and f.suffix.lower() in valid_extensions
-    ]
-    files = sorted(files, key=extract_sort_key)
+    files = sorted(
+        [
+            f
+            for f in folder.iterdir()
+            if f.is_file() and f.suffix.lower() in valid_extensions
+        ],
+        key=extract_sort_key,
+    )
 
     if not files:
-        raise FileNotFoundError(
-            f"No se encontraron archivos .img o .tif en {folder_path}"
+        raise FileNotFoundError(f"No .img/.tif en {folder_path}")
+
+    def load_single(f):
+        # Carga un archivo individual
+        da_single = rioxarray.open_rasterio(
+            f, chunks={"x": chunk_size, "y": chunk_size}
         )
-
-    time_slices = []
-    for f in files:
-        # rioxarray abre tanto .img como .tif usando GDAL
-        da = rioxarray.open_rasterio(f, chunks={"x": chunk_size, "y": chunk_size})
-        da = da.squeeze(drop=True)
-
+        da_single = da_single.squeeze(drop=True)
         year, doy = extract_sort_key(f)
-        da = da.assign_coords(time=f"{year}_{doy:03d}")
-        time_slices.append(da)
+        return da_single, f"{year}_{doy:03d}"
 
-    return xr.concat(time_slices, dim="time")
+    # Paralleliza la lectura
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        results = list(executor.map(load_single, files))
+
+    time_slices, time_labels = zip(*results)
+    stack = xr.concat(time_slices, dim="time")
+    stack = stack.assign_coords(time=list(time_labels))
+
+    # Fuerza time como un solo chunk
+    stack = stack.chunk({"time": -1, "y": chunk_size, "x": chunk_size})
+    return stack
 
 
 def persistence_1d(arr_1d, cap_at_seven=True):
@@ -64,7 +75,6 @@ def persistence_1d(arr_1d, cap_at_seven=True):
     individual. Recibe un vector a lo largo del eje del tiempo.
     """
     is_stress = np.isin(arr_1d, [4, 5])
-    is_valid_non_stress = np.isin(arr_1d, [1, 2, 3])
 
     # Cualquier valor fuera de 1,2,3,4,5 (0, 6, NaN) es fondo o máscara
     is_bg = ~np.isin(arr_1d, [1, 2, 3, 4, 5])
