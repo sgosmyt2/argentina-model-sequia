@@ -74,8 +74,8 @@ def persistence_block(block, cap_at_seven=True):
     vectorización completa del espacio (rápido).
     Block: (time, chunk_y, chunk_x)
     """
-    is_stress = np.isin(block, [4, 5]).astype(np.int16)
-    persistence = np.zeros_like(is_stress, dtype=np.int16)
+    is_stress = np.isin(block, [4, 5]).astype(np.int8)
+    persistence = np.zeros_like(is_stress, dtype=np.int8)
 
     for t in range(block.shape[0]):
         if t == 0:
