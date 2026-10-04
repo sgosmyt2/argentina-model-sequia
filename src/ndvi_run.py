@@ -29,12 +29,11 @@ def main():
     encoding = {
         "ndvi_persistence": {
             "dtype": "uint8",
-            "_FillValue": None,
         }
     }
 
     with ProgressBar():
-        ds_out.to_zarr(OUTPUT_FILE, encoding=encoding)
+        ds_out.to_zarr(OUTPUT_FILE, encoding=encoding, mode="w")
     print(f"\nGuardado prueba NetCDF a {OUTPUT_FILE}")
 
 

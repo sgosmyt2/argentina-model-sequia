@@ -74,8 +74,8 @@ def persistence_block(block, cap_at_seven=True):
     vectorización completa del espacio (rápido).
     Block: (time, chunk_y, chunk_x)
     """
-    is_stress = np.isin(block, [4, 5]).astype(np.int8)
-    persistence = np.zeros_like(is_stress, dtype=np.int8)
+    is_stress = np.isin(block, [4, 5]).astype(np.uint8)
+    persistence = np.zeros_like(is_stress, dtype=np.uint8)
 
     for t in range(block.shape[0]):
         if t == 0:
@@ -103,6 +103,15 @@ def calculate_sepa_persistence(anomaly_da, cap_at_seven=True):
     result_data = anomaly_da.data.map_blocks(
         persistence_block, cap_at_seven=cap_at_seven, dtype=np.uint8
     )
-    result_da = anomaly_da.copy(data=result_data)
-    result_da.name = "ndvi_persistence"
+
+    result_da = xr.DataArray(
+        result_data,
+        coords=anomaly_da.coords,
+        dims=anomaly_da.dims,
+        name="ndvi_persistence",
+        attrs=anomaly_da.attrs,
+    )
+
+    result_da.encoding = {}
+
     return result_da
