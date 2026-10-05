@@ -10,20 +10,23 @@ import xarray as xr
 
 def extract_sort_key(filepath):
     """
-    Extrae el año y el día del año para ordenar los archivos. Funciona con
-    .img, .tif/tiff.
+    Extrae el año y el día del año para ordenar los archivos.
+    Falla ruidosamente si el nombre no coincide con el patrón esperado.
     """
     filename = Path(filepath).name
-    # Si la forma del archivo cambia con NDVI diferente vas a necesitar cambiar el string aqui
     match = re.search(
+        # Si la forma del archivo cambia con NDVI diferente vas a necesitar cambiar el string aqui
         r"sc-iv-(\d{3}).*?(\d{4})-argentina\.(img|tif|tiff)$",
         filename,
         re.IGNORECASE,
     )
-    if match:
-        doy, year, _ = match.groups()
-        return (int(year), int(doy))
-    return (0, 0)
+    if match is None:
+        raise ValueError(
+            f"Nombre de archivo no coincide con el patrón esperado: {filename}\n"
+            f"Esperado: sc-iv-DDD...YYYY-argentina.(img|tif|tiff)"
+        )
+    doy, year, _ = match.groups()
+    return (int(year), int(doy))
 
 
 def load_ndvi_stack(folder_path, chunk_size=2024, max_workers=4):
