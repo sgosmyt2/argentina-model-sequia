@@ -220,7 +220,8 @@ __marimo__/
 # Data
 /data/raw/
 /data/processed/
-/data/processed/imerg_argentina.nc
-/data/processed/imerg_arg_monthly_clean.nc
+
 results/bias_correction/era5_arg_monthly_corrected.nc
 results/bias_correction/imerg_arg_monthly_corrected.nc
+results/bias_correction/chirps_arg_monthly_corrected.nc
+data/processed/fixed_station.csv
