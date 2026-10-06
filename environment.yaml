@@ -1,0 +1,22 @@
+name: inta_model
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - numpy=1.26.4
+  - xarray
+  - matplotlib
+  - geopandas
+  - cdsapi
+  - dask
+  - regionmask[version='>=0.9']
+  - netcdf4
+  - h5netcdf
+  - earthaccess
+  - ipykernel
+  - seaborn
+  - openpyxl
+  - pykrige
+  - rioxarray
+  - zarr
